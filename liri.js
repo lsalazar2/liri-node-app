@@ -6,13 +6,17 @@ var keys = require("./keys.js"); //read in keys.jsfile
 
 var Spotify = require('node-spotify-api');
 
-//var spotify = new Spotify(keys.spotify);
+var spotify = new Spotify(keys.spotify);
+console.log("spotify object:" + spotify);
 
 var request = require("request"); //makes request to HTTPS site for OMDB & Bands in Town API
 
 var moment = require("moment");
 
-var nodeInputs = process.argv;
+var nodeInputs = process.argv; //global variable
+
+var liriCommand = process.argv[2];
+var liriSearch = process.argv[3];
 
 // Main body Get user request via node
 //take in one of the following commands:
@@ -20,19 +24,16 @@ function main() {
     console.log("in main fn");
     //switch statement for each parameter + random.txt
 
-    var liriCommand = process.arv[2];
-    var liriSearch = process.argv[3];
-
     switch (liriCommand) {
         //1. concert-this bandname command
         case "concert-this":
-            console.log("concert this fn");
-            concert(liriSearch); //call fn to find concert
+            console.log("concert-this fn");
+            concert(liriSearch);
             break;
 
         // 2. spotify-this-song
-        case "spotify-this=song":
-            song(liriSearch);
+        case "spotify-this-song":
+            songSearch(liriSearch);
             break;
 
         // 3. movie-this
@@ -44,136 +45,180 @@ function main() {
         case "do-what-it-says":
             doit(liriSearch);
             break;
-        //concert-this function (artist_band_name), search Bands in Town Artist Events API return:
-        //Name of venue
-        //Venue Location
-        //Date of event (MM/DD/YYYY)
+
         case "spotify-this=song":
-            song(liriSearch);
+            songSearch(liriSearch);
             break;
     }
 }//End of Main
 
-function concert(band) {
-    console.log("in concert fn");
-    if (band) { //band is not null string
+function concert(search) {
+    //concert-this function (artist_band_name), search Bands in Town Artist Events API return:
+    //Name of venue, Location & Event Date(MM/DD/YYYY)
 
+    console.log("nodeInputs=" + nodeInputs);
+
+    if (nodeInputs) { //check for no band input
         var artist = "";
         console.log(artist);
-        for (var i = 3; i < liriSearch.length; i++) {
-            if (i > 3) {
-                artist = artist + "+" + band[i];
+        for (var i = 3; i < nodeInputs.length; i++) {
+            if (i > 3 && i < nodeInputs.length) {
+                artist = artist + "+" + nodeInputs[i];
+                console.log(artist);
             }
             else {
-                artist += band[i];
+                artist += nodeInputs[i];
             }
         }
-        console.log("artist:" + artist);
     }
-    //request("./bands.js");
+    request("https://rest.bandsintown.com/artists/" + artist + "/events?app_id=codingbootcamp", function (error, response, body) {
+        //If no error and response is a success
+        if (!error && response.statusCode === 200) {
+            //Parse the json response
+            console.log("get concert data for this artist");
 
+            var data = JSON.parse(body);
 
-    //}
+            //Loop through array
+            for (var i = 0; i < data.length; i++) {
+                //Get venue name
+                console.log("Upcoming concerts for " + artist + ":");
+                console.log("Venue: " + data[i].venue.name);
+
+                //Get venue location
+                //If statement for concerts without a region
+                if (data[i].venue.region == "") {
+                    console.log("Location: " + data[i].venue.city + ", " + data[i].venue.country);
+                } else {
+                    console.log("Location: " + data[i].venue.city + ", " + data[i].venue.region + ", " + data[i].venue.country);
+                }
+                //Get date of show
+                var date = data[i].datetime;
+                date = moment(date).format("MM/DD/YYYY");
+                console.log("Date: " + date)
+                console.log("----------------")
+            }
+        }
+        else {
+            console.log("Error:" + response.statusCode.Code);
+        }
+
+    });
+
 }
 
-function song(song) {
+function songSearch(song) {
     console.log("in songs fn");
+
+    //spotify-this-song and show: artist, Song's name, if none,  default is: "The Sign" by Ace of Base, preview link of song from Spotify, alblum the song is from
+
+    if (!song) { //set to default if no song was input
+        userInput = "The Sign";
+    }
+
+    spotify.search({
+        type: "track",
+        query: song
+    }, function (err, data) {
+        if (err) {
+            console.log("Error occured: " + err)
+        }
+        var info = data.tracks.items
+
+        //Loop through all the "items" array
+        for (var i = 0; i < info.length; i++) {
+            //Store "album" object to variable
+            var albumObject = info[i].album;
+            var trackName = info[i].name;
+            var preview = info[i].preview_url;
+
+            //Store "artists" array to variable
+            var artistsInfo = albumObject.artists
+
+            //Loop through "artists" array
+            for (var j = 0; j < artistsInfo.length; j++) {
+                console.log("Artist: " + artistsInfo[j].name);
+                console.log("Song Name: " + trackName);
+                console.log("Preview of Song: " + preview);
+                console.log("Album Name: " + albumObject.name);
+            }
+        }
+        //spotify
+        //    .request('https://api.spotify.com/v1/tracks/7yCPwWs66K8Ba5lFuU2bcx')
+        //    .then(function (data) {
+        //        console.log(data);
+        //    })
+        //    .catch(function (err) {
+        //        console.error('Error occurred: ' + err);
+        //    });
+
+    });
 }
-//spotify-this-song function(song name here) and show:
-// 1. artist
-// 2. Song's name, if none, default is: "The Sign" by Ace of Base
-// 3. preview link of song from Spotify
-// 4. alblum the song is from
 
+function movie(movie) {
+    console.log("in the movie fn");
 
-//spotify.search({ type: 'track', query: 'query:song }, function(err, data) {
-// if (err) {
-//   return console.log('Error occurred: ' + err);
-//  }
+    var request = require("request");
 
-// placeholdercode 
-//spotify
-//    .request('https://api.spotify.com/v1/tracks/7yCPwWs66K8Ba5lFuU2bcx')
-//    .then(function (data) {
-//        console.log(data);
-//    })
-//    .catch(function (err) {
-//        console.error('Error occurred: ' + err);
-//    });
+    // Store all of the arguments in an array
+    var nodeInputs = process.argv;
 
-//    function showSong(song) {
+    var movieName = "";
 
-//        spotify.search({ type: "track", query: song }, function (err, data) {
-//            if (err) {
-//                return console.log("Error occurred: " + err);
-//            }
+    // Loop through all the words in the node argument
+    if (!movie) {
+        //no movie was input default to Mr.Nobody
+        movieName = "Mr. Nobody";
+    }
+    else {
+        //get the movie name
 
-// the data for 1 song:
+        for (var i = 3; i < nodeInputs.length; i++) {
 
-//            var songData = data.tracks.items[0]
-// console.log(songData);
-//            var song = {
-//                artist: songData.artists[0].name,
-//                songName: songData.name,
-//                songURL: songData.preview_url,
-//                album: songData.album.name
-//            }
-//            console.log(song);
-//        });
-//     }
+            if (i > 3) {
+                movieName = movieName + "+" + nodeInputs[i];
+            }
+            else {
+                movieName += nodeInputs[i];
+            }
+        }
+    }
+    console.log(movieName);
 
-function movie(name) {
-    console.log("in movie fn");
+    // Request movie data from the OMDB API
+    var queryURL = "http://www.omdbapi.com/?t=" + movieName + "&y=&plot=short&apikey=trilogy";
+
+    request(queryURL, function (error, response, body) {
+        if (!error && response.statusCode === 200) {
+            var info = JSON.parse(body);
+            console.log("Title: " + info.Title);
+            console.log("Release Year: " + info.Year);
+            console.log("IMDB Rating: " + info.Ratings[0].Value);
+            console.log("Rotten Tomatoes Rating: " + info.Ratings[1].Value);
+            console.log("Country: " + info.Country);
+            console.log("Language: " + info.Language);
+            console.log("Plot: " + info.Plot);
+            console.log("Actors: " + info.Actors);
+        }
+    });
 }
-//movie-this function(movie name) and show:
-//title of movie (default if none to: Mr.Nobody)
-// year movie came out
-//IMDB rating of the movie
-//rotten tomatoes ratingof movie
-//country where movie was produced
-//languageof the movie
-//plot of the movie
-//actors in the movie
-
-//OMDB api key: http://www.omdbapi.com/?i=tt3896198&apikey=aafd5b81
-//var request = require("request");
-
-// Then run a request to the OMDB API with the movie specified
-//request("http://www.omdbapi.com/?t=remember+the+titans&y=&plot=short&apikey=trilogy", function (error, response, body) {
-
-// If the request is successful (i.e. if the response status code is 200)
-//    if (!error && response.statusCode === 200) {
-
-// Parse the body of the site and recover just the imdbRating
-// (Note: The syntax below for parsing isn't obvious. Just spend a few moments dissecting it).
-//      console.log("The movie's rating is: " + JSON.parse(body).imdbRating);
-//}
-//});
 
 function doit(usertext) {
-    console.log("in movie fn");
+    //do-what-it-says use fs node package to take text in random.txt and use it to call oneof Liri's commands
+
+    var fs = require("fs");
+
+    //Read random.txt file
+    fs.readFile("./random.txt", "utf8", function (error, data) {
+        if (error) {
+            return console.log(error)
+        }
+        //Split data into array
+        var textArr = data.split(",");
+        liriCommand = textArr[0];
+        liriSearch = textArr[1];
+        main(); //call main routine to execute one of the other 3 functions
+    });
 }
-
-//do-what-it-says
-//use fs node package to take text in random.txt and use it to call oneof Liri's commands
-
-//const fs = require('fs');
-//fs.readFile('./random.txt', 'utf-8', function (err, data) {
-//    if (err) { return err; }
-//    console.log('data: ', data);
-//});
-
-// The code will store the contents of the reading inside the variable "data"
-// Then split it by commas (to make it more readable)
-
-// should read spotify-this-song I Want it That Way
-
-//edit random.txt to test movie-this and concert-this
-
-//request NPM to access APIs
-
-//request('http://www.google.com', function (error, response, body)//{
-//    console.log('error:', error); // Print the error if one occurred
-//    console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
-//    console.log('body:', body); // Print the HTML for the Google homepage.
-//});
+// Call main function
+main();
